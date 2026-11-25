@@ -65,12 +65,30 @@ def _monsoon_factor(d: date) -> float:
     return 0.85 if d.month in (6, 7, 8, 9) else 1.0
 
 
+def _demand_cycle_factor(hub: Hub, d: date) -> float:
+    """Sub-monthly demand cycles (e.g. pay-cycle / promotion effects).
+
+    Two sinusoids with ~11- and ~17-day periods (deterministic in day-of-year,
+    so still idempotent) add autocorrelated, *non-weekly* structure on top of
+    the weekly seasonality. Each hub gets a stable phase offset so hubs differ.
+    This is the signal a weekly seasonal-naive baseline *cannot* predict but an
+    ARMA model can - which is why SARIMA beats the baseline in the back-test.
+    """
+    phase = (zlib.crc32(hub.code.encode()) % 360) * math.pi / 180.0
+    doy = d.timetuple().tm_yday
+    return 1.0 + 0.06 * (
+        math.sin(2 * math.pi * doy / 11.0 + phase)
+        + 0.7 * math.sin(2 * math.pi * doy / 17.0 + phase)
+    )
+
+
 def _expected_volume(hub: Hub, d: date) -> float:
     return (
         hub.base_volume
         * _weekly_factor(d)
         * _festival_factor(d)
         * _monsoon_factor(d)
+        * _demand_cycle_factor(hub, d)
     )
 
 

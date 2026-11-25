@@ -146,9 +146,11 @@ def _inject_dirty_rows(rows: list[dict], rng: random.Random, dirty_rate: float) 
       * malformed date
       * exact duplicate of another row
     """
-    if not rows:
+    if not rows or dirty_rate <= 0:
         return rows
-    n_dirty = int(len(rows) * dirty_rate)
+    # At least one defect per file when dirtying is enabled, so even small
+    # batches exercise the quality stage; large batches scale with the rate.
+    n_dirty = max(1, int(len(rows) * dirty_rate))
     for _ in range(n_dirty):
         kind = rng.choice(["null", "bad_weight", "bad_date", "duplicate"])
         idx = rng.randrange(len(rows))

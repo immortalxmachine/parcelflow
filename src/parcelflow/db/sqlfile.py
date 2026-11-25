@@ -14,6 +14,18 @@ from ..config import PROJECT_ROOT
 
 SQL_DIR = PROJECT_ROOT / "sql"
 _NAME_RE = re.compile(r"^--\s*name:\s*(\w+)\s*$", re.MULTILINE)
+_COMMENT_RE = re.compile(r"--.*$", re.MULTILINE)
+
+
+def _strip_comments(sql: str) -> str:
+    """Remove ``--`` line comments.
+
+    Bind parameters use the ``:name`` syntax, so a colon inside a descriptive
+    comment (e.g. ``-- forecast for (:hub_code)``) would otherwise be parsed as
+    a second parameter. Stripping comments avoids that. Safe here because none
+    of our SQL contains ``--`` inside a string literal.
+    """
+    return _COMMENT_RE.sub("", sql)
 
 
 def load_named_queries(filename: str) -> dict[str, str]:
@@ -25,7 +37,7 @@ def load_named_queries(filename: str) -> dict[str, str]:
         name = m.group(1)
         start = m.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        body = text[start:end].strip()
+        body = _strip_comments(text[start:end]).strip()
         if body:
             queries[name] = body
     return queries

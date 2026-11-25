@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, asdict
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import Engine, text
 
@@ -61,7 +61,7 @@ def run_for_date(
 
     iso = run_date.isoformat()
     run_id = uuid.uuid4().hex[:12]
-    started = datetime.utcnow().isoformat(timespec="seconds")
+    started = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     # 1. Extract: ensure raw files exist in blob storage for this date.
     if generate:
@@ -82,7 +82,7 @@ def run_for_date(
     # 5. Transform into the fact table.
     fact_rows = transform.build_fact_for_partition(engine, iso)
 
-    finished = datetime.utcnow().isoformat(timespec="seconds")
+    finished = datetime.now(timezone.utc).isoformat(timespec="seconds")
     result = RunResult(
         run_id=run_id,
         run_date=iso,

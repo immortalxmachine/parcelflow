@@ -1,0 +1,23 @@
+# Core data pipeline
+pandas>=2.1
+numpy>=1.26
+SQLAlchemy>=2.0
+python-dotenv>=1.0
+
+# Forecasting
+statsmodels>=0.14
+scikit-learn>=1.3
+
+# Dashboard
+streamlit>=1.30
+plotly>=5.18
+
+# Azure Blob (works against Azurite locally)
+azure-storage-blob>=12.19
+
+# Postgres driver (optional locally; required for the Docker/Postgres path)
+psycopg[binary]>=3.1
+
+# Dev / test
+pytest>=7.4
+ruff>=0.1

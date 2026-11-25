@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment / secrets
+.env
+
+# Generated data, local blob store, local db, model artifacts
+# (track the empty dir via .gitkeep so a fresh clone has somewhere to write)
+data/*
+!data/.gitkeep
+*.db
+*.sqlite
+*.sqlite3
+*.parquet
+models/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -25,6 +25,17 @@ SEASON = 7          # weekly seasonality
 DEFAULT_HORIZON = 14
 HOLDOUT = 14        # days held out to measure error
 
+# Model order chosen by validation (see docs/architecture.md): no regular
+# differencing (d=0) with a constant keeps the 14-day forecast anchored to the
+# series level, while seasonal differencing (D=1) handles the weekly cycle and
+# the ARMA(1,1) terms capture the sub-monthly demand cycles. Aggressive double
+# differencing (d=1,D=1) drifts over a 14-day horizon and loses to the
+# seasonal-naive baseline; this spec beats it.
+ORDER = (1, 0, 1)
+SEASONAL_ORDER = (1, 1, 1, SEASON)
+TREND = "c"
+MODEL_NAME = "SARIMA(1,0,1)(1,1,1,7)+c"
+
 
 @dataclass
 class HubForecastMetrics:
@@ -77,8 +88,9 @@ def _fit_sarima(train: pd.Series, season: int = SEASON):
         warnings.simplefilter("ignore")  # convergence/frequency warnings are noisy
         model = SARIMAX(
             train,
-            order=(1, 1, 1),
-            seasonal_order=(1, 1, 1, season),
+            order=ORDER,
+            seasonal_order=(SEASONAL_ORDER[0], SEASONAL_ORDER[1], SEASONAL_ORDER[2], season),
+            trend=TREND,
             enforce_stationarity=False,
             enforce_invertibility=False,
         )
@@ -161,7 +173,7 @@ def evaluate_all(engine: Engine, hub_codes: list[str], holdout: int = HOLDOUT) -
         else None
     )
     return {
-        "model": "SARIMA(1,1,1)(1,1,1,7)",
+        "model": MODEL_NAME,
         "baseline": "seasonal_naive(m=7)",
         "metric": "MAPE_percent",
         "holdout_days": holdout,

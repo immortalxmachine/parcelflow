@@ -11,8 +11,8 @@ from datetime import date, datetime
 
 from sqlalchemy import Engine, select
 
-from ..generate.hubs import HUBS, SERVICE_TYPES
 from ..db.schema import dim_date, dim_hub, dim_service
+from ..generate.hubs import HUBS, SERVICE_TYPES
 
 MONSOON_MONTHS = {6, 7, 8, 9}
 FESTIVAL_MONTHS = {10, 11}  # Diwali season (approx.)

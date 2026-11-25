@@ -25,8 +25,9 @@ def test_generate_day_rows_schema():
 def test_generation_is_reproducible():
     # Same date + hub => identical data (stable hashing). This is what makes
     # the pipeline idempotent across processes.
-    from parcelflow.storage.local import LocalFileStorage
     import tempfile
+
+    from parcelflow.storage.local import LocalFileStorage
 
     with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
         sa, sb = LocalFileStorage(a), LocalFileStorage(b)

@@ -15,7 +15,7 @@ to the same result instead of duplicating rows.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
 
 from sqlalchemy import Engine, text

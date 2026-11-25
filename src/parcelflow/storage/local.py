@@ -30,7 +30,6 @@ class LocalFileStorage(StorageBackend):
         return self._path(key).read_bytes()
 
     def list_keys(self, prefix: str) -> list[str]:
-        base = self._path(prefix)
         # ``prefix`` may point at a directory or be a partial path; search the
         # whole root and filter by the prefix string for consistent behaviour.
         keys = []

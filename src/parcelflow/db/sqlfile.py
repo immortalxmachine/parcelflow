@@ -8,7 +8,6 @@ specific statement by name.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 from ..config import PROJECT_ROOT
 

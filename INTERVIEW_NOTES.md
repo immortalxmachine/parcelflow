@@ -84,11 +84,17 @@ builds a `hub_vol` CTE (total volume per hub) then ranks it; the moving-average
 query builds a `daily` CTE before applying the window.
 
 ### 11. How does the forecasting work? Why SARIMA?
-`forecast/forecast.py` fits **SARIMA(1,1,1)(1,1,1,7)** per hub — ARIMA plus a
-seasonal component with weekly period `m=7`, because parcel volume has strong
-day-of-week seasonality. I difference once (`d=1`) for trend and once
-seasonally (`D=1`) for the weekly cycle. I forecast 14 days ahead with an 80%
-confidence interval from the model's variance.
+`forecast/forecast.py` fits **SARIMA(1,0,1)(1,1,1,7) + constant** per hub —
+ARMA(1,1) terms, no regular differencing (`d=0`) with a constant level, and a
+seasonal part with weekly period `m=7` and one seasonal difference (`D=1`). I
+forecast 14 days ahead with an 80% confidence interval from the model variance.
+**Why this order:** I first tried the textbook double-differenced
+(1,1,1)(1,1,1,7); it *lost* to the seasonal-naive baseline because double
+differencing makes a 14-step-ahead forecast drift. I ran a small model-selection
+sweep (see `docs/architecture.md`) and `d=0 + const` kept the forecast anchored
+to the series level while the ARMA terms captured the sub-monthly demand cycles
+— that spec beat the baseline by ~16% MAPE. Be ready to explain that the first
+model losing to naive was the finding that drove the fix.
 
 ### 12. What's the baseline and why compare against it?
 The baseline is **seasonal-naive**: "next Tuesday ≈ last Tuesday"

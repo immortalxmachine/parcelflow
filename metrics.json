@@ -1,0 +1,116 @@
+{
+  "model": "SARIMA(1,0,1)(1,1,1,7)+c",
+  "baseline": "seasonal_naive(m=7)",
+  "metric": "MAPE_percent",
+  "holdout_days": 14,
+  "avg_mape_sarima": 14.101,
+  "avg_mape_naive": 16.782,
+  "avg_improvement_pct": 15.98,
+  "per_hub": [
+    {
+      "hub_code": "CHN",
+      "n_days": 731,
+      "mape_sarima": 8.012,
+      "mape_naive": 10.325,
+      "improvement_pct": 22.4
+    },
+    {
+      "hub_code": "BLR",
+      "n_days": 731,
+      "mape_sarima": 13.609,
+      "mape_naive": 18.275,
+      "improvement_pct": 25.54
+    },
+    {
+      "hub_code": "HYD",
+      "n_days": 731,
+      "mape_sarima": 15.351,
+      "mape_naive": 20.289,
+      "improvement_pct": 24.34
+    },
+    {
+      "hub_code": "COK",
+      "n_days": 731,
+      "mape_sarima": 18.714,
+      "mape_naive": 22.467,
+      "improvement_pct": 16.71
+    },
+    {
+      "hub_code": "MUM",
+      "n_days": 731,
+      "mape_sarima": 13.743,
+      "mape_naive": 22.558,
+      "improvement_pct": 39.08
+    },
+    {
+      "hub_code": "PUN",
+      "n_days": 731,
+      "mape_sarima": 8.765,
+      "mape_naive": 11.426,
+      "improvement_pct": 23.29
+    },
+    {
+      "hub_code": "AMD",
+      "n_days": 731,
+      "mape_sarima": 8.828,
+      "mape_naive": 14.651,
+      "improvement_pct": 39.75
+    },
+    {
+      "hub_code": "DEL",
+      "n_days": 731,
+      "mape_sarima": 21.412,
+      "mape_naive": 15.787,
+      "improvement_pct": -35.62
+    },
+    {
+      "hub_code": "JAI",
+      "n_days": 731,
+      "mape_sarima": 11.97,
+      "mape_naive": 11.247,
+      "improvement_pct": -6.43
+    },
+    {
+      "hub_code": "LKO",
+      "n_days": 731,
+      "mape_sarima": 8.528,
+      "mape_naive": 14.627,
+      "improvement_pct": 41.7
+    },
+    {
+      "hub_code": "CHD",
+      "n_days": 731,
+      "mape_sarima": 8.511,
+      "mape_naive": 12.924,
+      "improvement_pct": 34.15
+    },
+    {
+      "hub_code": "KOL",
+      "n_days": 731,
+      "mape_sarima": 25.029,
+      "mape_naive": 21.778,
+      "improvement_pct": -14.93
+    },
+    {
+      "hub_code": "PAT",
+      "n_days": 731,
+      "mape_sarima": 13.871,
+      "mape_naive": 16.081,
+      "improvement_pct": 13.75
+    },
+    {
+      "hub_code": "GUW",
+      "n_days": 731,
+      "mape_sarima": 19.936,
+      "mape_naive": 26.632,
+      "improvement_pct": 25.14
+    },
+    {
+      "hub_code": "NAG",
+      "n_days": 731,
+      "mape_sarima": 15.231,
+      "mape_naive": 12.667,
+      "improvement_pct": -20.25
+    }
+  ]
+}

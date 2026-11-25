@@ -59,11 +59,20 @@ partition, and generation is reproducible, so retries, overlapping schedules
 and backfills are all safe. This is what makes a daily cron (or a 2-year
 backfill) robust without a heavyweight orchestrator.
 
-### Why SARIMA with a seasonal-naive baseline
-Parcel volume has strong weekly seasonality and festival/monsoon effects.
-SARIMA(1,1,1)(1,1,1,7) captures trend + weekly season with few, explainable
-parameters. The seasonal-naive baseline is the honesty check: the model must
-beat "same weekday last week" on a held-out back-test, reported as MAPE.
+### Why SARIMA, which order, and a seasonal-naive baseline
+Parcel volume has weekly seasonality, festival/monsoon effects and sub-monthly
+demand cycles. The seasonal-naive baseline ("same weekday last week") is the
+honesty check — the model must beat it on a 14-day holdout back-test (MAPE).
+
+**Model selection mattered.** The textbook double-differenced
+SARIMA(1,1,1)(1,1,1,7) actually *lost* to the baseline (~-8% MAPE) because
+double differencing (`d=1, D=1`) makes a 14-step forecast drift away from the
+series level. A small validation sweep over orders found
+**SARIMA(1,0,1)(1,1,1,7) + constant**: no regular differencing keeps the
+forecast anchored, one seasonal difference handles the weekly cycle, and the
+ARMA(1,1) terms capture the non-weekly demand cycles. That spec beats the
+baseline by **~16% MAPE** (14.1% vs 16.8%). The lesson — always validate a
+model against a naive baseline — is itself a talking point.
 
 ### Why Azurite
 Azurite emulates Azure Blob locally, so the Azure SDK code path is exercised

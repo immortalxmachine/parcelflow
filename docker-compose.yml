@@ -1,0 +1,68 @@
+# Production-like local stack: PostgreSQL warehouse + Azurite (Azure Blob
+# emulator) + the ParcelFlow app. This mirrors the cloud topology (managed
+# Postgres + Azure Blob) without any cloud account or cost.
+#
+# Usage:
+#   docker compose up -d postgres azurite      # start the backing services
+#   docker compose run --rm pipeline           # init + backfill 2 years
+#   docker compose up dashboard                # open http://localhost:8501
+#
+# (The same code runs with zero Docker via SQLite + local files; see README.)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: parcelflow
+      POSTGRES_PASSWORD: parcelflow
+      POSTGRES_DB: parcelflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parcelflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    command: "azurite-blob --blobHost 0.0.0.0 --blobPort 10000"
+    ports:
+      - "10000:10000"
+    volumes:
+      - azurite:/data
+
+  # One-shot: create schema + backfill 2 years into Postgres via Azurite.
+  pipeline:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      azurite:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+psycopg://parcelflow:parcelflow@postgres:5432/parcelflow
+      STORAGE_BACKEND: azure
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+    command: >
+      sh -c "python pipeline.py initdb &&
+             python pipeline.py backfill --years 2 &&
+             python pipeline.py forecast"
+
+  dashboard:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://parcelflow:parcelflow@postgres:5432/parcelflow
+      STORAGE_BACKEND: azure
+      AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+    ports:
+      - "8501:8501"
+
+volumes:
+  pgdata:
+  azurite:

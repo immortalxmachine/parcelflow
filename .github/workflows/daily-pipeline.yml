@@ -1,0 +1,29 @@
+name: Daily pipeline
+
+# Demonstrates scheduled orchestration: the ELT pipeline runs once per day.
+# In this portfolio project the warehouse is ephemeral (fresh SQLite each run),
+# so this proves the pipeline executes cleanly on a schedule and is idempotent.
+# In production the same step would point DATABASE_URL at a managed Postgres.
+
+on:
+  schedule:
+    - cron: "30 1 * * *"   # 01:30 UTC daily
+  workflow_dispatch:        # allow manual runs from the Actions tab
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run pipeline for yesterday (idempotent)
+        run: |
+          python pipeline.py initdb
+          python pipeline.py run --date "$(date -u -d 'yesterday' +%Y-%m-%d)"
+          python pipeline.py status

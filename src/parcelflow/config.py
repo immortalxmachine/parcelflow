@@ -38,8 +38,7 @@ class Settings:
     local_storage_root: str
     azure_connection_string: str
     azure_raw_container: str
-    n_hubs: int
-    volume_scale: float
+    olist_dir: str
 
 
 def get_settings() -> Settings:
@@ -62,10 +61,6 @@ def get_settings() -> Settings:
         local_storage_root=_resolve(os.getenv("LOCAL_STORAGE_ROOT", "data/blob")),
         azure_connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING", ""),
         azure_raw_container=os.getenv("AZURE_RAW_CONTAINER", "raw"),
-        n_hubs=int(os.getenv("PARCELFLOW_N_HUBS", "15")),
-        # Downscales stored parcel counts so a full 2-year dataset fits a
-        # laptop/CI while preserving the *shape* (seasonality, trends). The
-        # hub base volumes read like real FedEx-scale numbers; this is the
-        # single knob that scales them for local storage.
-        volume_scale=float(os.getenv("VOLUME_SCALE", "0.02")),
+        # Directory holding the unzipped Olist CSVs (the real source data).
+        olist_dir=_resolve(os.getenv("OLIST_DIR", "data/raw/olist")),
     )

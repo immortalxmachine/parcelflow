@@ -35,7 +35,7 @@ create any paid-tier resource.
    and set `DATABASE_URL=postgresql+psycopg://USER:PASS@parcelflow-pg...:5432/parcelflow`.
 5. Run the pipeline once to populate the warehouse (locally pointing at the
    cloud `DATABASE_URL`, or as an Azure Container Instance using this repo's
-   image): `python pipeline.py initdb && python pipeline.py backfill --years 2`.
+   image): `python pipeline.py initdb && python pipeline.py backfill`.
 6. **App Service** (Linux, free F1) from the Docker image, with the env vars
    above. Browse to the app URL.
 

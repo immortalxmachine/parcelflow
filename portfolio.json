@@ -1,16 +1,16 @@
 {
   "title": "ParcelFlow",
-  "tagline": "Cloud ELT pipeline + parcel-volume forecasting",
+  "tagline": "Cloud ELT pipeline + order-volume forecasting on real Olist data",
   "category": "Data",
   "highlights": [
-    "Idempotent ELT pipeline ingesting 695K synthetic shipment rows across 731 daily partitions and 15 hubs into a star-schema warehouse.",
-    "14-day SARIMA forecaster that beat a seasonal-naive baseline by ~16% MAPE (14.1% vs 16.8%).",
-    "Data-quality stage quarantining 16,081 bad rows (2.3%) with reasons, plus a run log for observability."
+    "Idempotent ELT pipeline ingesting 98.5K real Olist e-commerce orders across 595 daily partitions and 27 Brazilian states into a star-schema warehouse.",
+    "14-day SARIMA forecaster that beat a seasonal-naive baseline by ~40% MAPE (25.1% vs 42.1%) across the 5 highest-volume states.",
+    "Data-quality stage quarantining inconsistent orders with reasons, plus a run log for observability; swappable SQLite/Postgres and local/Azure backends."
   ],
   "metrics": [
-    { "label": "Rows ingested", "value": "695K" },
-    { "label": "MAPE vs baseline", "value": "-16%" },
-    { "label": "Automated tests", "value": "21" }
+    { "label": "Real orders ingested", "value": "98.5K" },
+    { "label": "MAPE vs baseline", "value": "-40%" },
+    { "label": "Automated tests", "value": "23" }
   ],
   "demo": null,
   "featured": true,

@@ -3,7 +3,8 @@
 Defined with SQLAlchemy Core so the same definitions emit valid DDL on both
 SQLite (local/CI) and PostgreSQL (Docker/cloud). The warehouse uses a classic
 **star schema**: a central ``fact_shipments`` table referencing conformed
-dimensions ``dim_hub``, ``dim_date`` and ``dim_service``.
+dimensions ``dim_hub`` (Brazilian customer state), ``dim_date`` and
+``dim_order_status``.
 """
 
 from __future__ import annotations
@@ -26,19 +27,21 @@ metadata = MetaData()
 # Landing / operational tables
 # --------------------------------------------------------------------------- #
 
-# Raw rows loaded from blob storage, before quality screening.
+# Raw rows loaded from blob storage, before quality screening. One row per
+# order (= one parcel shipped to a customer), sourced from the Olist dataset.
 stg_shipments = Table(
     "stg_shipments",
     metadata,
-    Column("shipment_id", String(64)),
-    Column("ship_date", String(10)),
-    Column("hub_code", String(8)),
-    Column("service_type", String(16)),
-    Column("weight_kg", Float),
-    Column("distance_km", Float),
-    Column("promised_hours", Float),
-    Column("actual_hours", Float),
-    Column("status", String(16)),
+    Column("order_id", String(40)),
+    Column("purchase_date", String(10)),
+    Column("customer_state", String(4)),   # the hub
+    Column("order_status", String(16)),
+    Column("price", Float),
+    Column("freight_value", Float),
+    Column("n_items", Integer),
+    Column("delivery_days", Float),
+    Column("delivered_date", String(10)),
+    Column("estimated_date", String(10)),
     Column("load_date", String(10), index=True),  # partition this batch belongs to
 )
 
@@ -46,15 +49,16 @@ stg_shipments = Table(
 quarantine_shipments = Table(
     "quarantine_shipments",
     metadata,
-    Column("shipment_id", String(64)),
-    Column("ship_date", String(10)),
-    Column("hub_code", String(8)),
-    Column("service_type", String(16)),
-    Column("weight_kg", String(32)),   # text: may hold the raw invalid value
-    Column("distance_km", String(32)),
-    Column("promised_hours", String(32)),
-    Column("actual_hours", String(32)),
-    Column("status", String(16)),
+    Column("order_id", String(40)),
+    Column("purchase_date", String(10)),
+    Column("customer_state", String(4)),
+    Column("order_status", String(16)),
+    Column("price", String(32)),           # text: may hold the raw invalid value
+    Column("freight_value", String(32)),
+    Column("n_items", String(32)),
+    Column("delivery_days", String(32)),
+    Column("delivered_date", String(10)),
+    Column("estimated_date", String(10)),
     Column("reason", Text),
     Column("load_date", String(10), index=True),
 )
@@ -89,11 +93,11 @@ dim_hub = Table(
     Column("lng", Float),
 )
 
-dim_service = Table(
-    "dim_service",
+dim_order_status = Table(
+    "dim_order_status",
     metadata,
-    Column("service_key", Integer, primary_key=True),
-    Column("service_type", String(16), unique=True),
+    Column("status_key", Integer, primary_key=True),
+    Column("order_status", String(16), unique=True),
 )
 
 dim_date = Table(
@@ -109,8 +113,7 @@ dim_date = Table(
     Column("day_name", String(10)),
     Column("week_of_year", Integer),
     Column("is_weekend", Boolean),
-    Column("is_monsoon", Boolean),
-    Column("is_festival_season", Boolean),
+    Column("is_holiday_season", Boolean),  # Nov-Dec (Black Friday / Christmas)
 )
 
 fact_shipments = Table(
@@ -121,11 +124,11 @@ fact_shipments = Table(
     Column("fact_id", Integer, primary_key=True, autoincrement=True),
     Column("date_key", Integer, ForeignKey("dim_date.date_key"), index=True),
     Column("hub_key", Integer, ForeignKey("dim_hub.hub_key"), index=True),
-    Column("service_key", Integer, ForeignKey("dim_service.service_key"), index=True),
-    Column("weight_kg", Float),
-    Column("distance_km", Float),
-    Column("promised_hours", Float),
-    Column("actual_hours", Float),
+    Column("status_key", Integer, ForeignKey("dim_order_status.status_key"), index=True),
+    Column("price", Float),
+    Column("freight_value", Float),
+    Column("n_items", Integer),
+    Column("delivery_days", Float),
     Column("is_delivered", Boolean),
     Column("is_on_time", Boolean),
 )

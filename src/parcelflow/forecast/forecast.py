@@ -27,10 +27,10 @@ HOLDOUT = 14        # days held out to measure error
 
 # Model order chosen by validation (see docs/architecture.md): no regular
 # differencing (d=0) with a constant keeps the 14-day forecast anchored to the
-# series level, while seasonal differencing (D=1) handles the weekly cycle and
-# the ARMA(1,1) terms capture the sub-monthly demand cycles. Aggressive double
-# differencing (d=1,D=1) drifts over a 14-day horizon and loses to the
-# seasonal-naive baseline; this spec beats it.
+# series level, while seasonal differencing (D=1) handles the strong weekly
+# cycle in the order data and the ARMA(1,1) terms capture short-run
+# autocorrelation. Aggressive double differencing (d=1,D=1) drifts over a
+# 14-day horizon and loses to the seasonal-naive baseline; this spec beats it.
 ORDER = (1, 0, 1)
 SEASONAL_ORDER = (1, 1, 1, SEASON)
 TREND = "c"
@@ -150,6 +150,32 @@ def forecast_future(
             "upper": np.round(upper, 1),
         }
     )
+
+
+def forecastable_hubs(
+    engine: Engine, min_avg_per_day: float = 8.0, min_days: int = 120
+) -> list[str]:
+    """Return hub codes dense enough to forecast a daily series on.
+
+    Daily counts carry Poisson sampling noise with coefficient of variation
+    ~1/sqrt(mean): a state averaging 3 orders/day has a ~58% noise floor, so no
+    model can forecast it well. We keep only states averaging at least
+    ``min_avg_per_day`` orders (default 8 -> noise floor <= ~35%) over a history
+    of at least ``min_days`` days; the rest are stored but not forecast.
+    Returned most-active first.
+    """
+    sql = get_query("kpis.sql", "hub_volume_stats")
+    with engine.connect() as conn:
+        rows = conn.execute(text(sql)).fetchall()
+    out: list[str] = []
+    for r in rows:
+        hub_code, total, _active, first_date, last_date = r[0], r[1], r[2], r[3], r[4]
+        span = (
+            pd.Timestamp(last_date) - pd.Timestamp(first_date)
+        ).days + 1
+        if span >= min_days and total / span >= min_avg_per_day:
+            out.append(hub_code)
+    return out
 
 
 def evaluate_all(engine: Engine, hub_codes: list[str], holdout: int = HOLDOUT) -> dict:

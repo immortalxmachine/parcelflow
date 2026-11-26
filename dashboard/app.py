@@ -1,11 +1,11 @@
 """ParcelFlow Streamlit dashboard.
 
 Reads the warehouse (star schema) directly via the project's KPI queries and
-visualises:
+visualises real Olist Brazilian e-commerce order volume:
 
-* **KPI cards**      - total shipments, hubs, overall on-time %, quarantine rate
+* **KPI cards**      - total orders, states, overall on-time %, quarantine rate
 * **Volume trend**   - daily total volume with a 7-day moving average
-* **Hub comparison** - total volume per hub, coloured by region
+* **State comparison** - total volume per state, coloured by region
 * **Forecast**       - 14-day SARIMA forecast vs recent actuals, with an 80%
                        confidence band
 
@@ -28,14 +28,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from parcelflow.db.engine import get_engine  # noqa: E402
 from parcelflow.db.schema import create_all  # noqa: E402
 from parcelflow.db.sqlfile import get_query  # noqa: E402
-from parcelflow.forecast.forecast import forecast_future, load_series  # noqa: E402
-from parcelflow.generate.hubs import HUBS  # noqa: E402
+from parcelflow.forecast.forecast import (  # noqa: E402
+    forecast_future,
+    forecastable_hubs,
+    load_series,
+)
+from parcelflow.source.states import STATES_BY_CODE  # noqa: E402
 
 st.set_page_config(page_title="ParcelFlow", page_icon="📦", layout="wide")
 
+# Brazil's five official macro-regions.
 REGION_COLORS = {
-    "South": "#2563eb", "West": "#16a34a", "North": "#d97706",
-    "East": "#dc2626", "Central": "#7c3aed",
+    "Southeast": "#2563eb", "South": "#16a34a", "Northeast": "#d97706",
+    "North": "#dc2626", "Central-West": "#7c3aed",
 }
 
 
@@ -59,6 +64,17 @@ def _has_data() -> bool:
 
 
 @st.cache_data(ttl=300)
+def _n_states() -> int:
+    with _engine().connect() as conn:
+        return conn.execute(text("SELECT COUNT(DISTINCT hub_key) FROM fact_shipments")).scalar_one()
+
+
+@st.cache_data(ttl=300)
+def _forecast_codes() -> list[str]:
+    return forecastable_hubs(_engine())
+
+
+@st.cache_data(ttl=300)
 def _forecast_df(hub_code: str, horizon: int) -> pd.DataFrame:
     return forecast_future(_engine(), hub_code, horizon=horizon)
 
@@ -71,19 +87,19 @@ def _series(hub_code: str) -> pd.Series:
 def kpi_cards() -> None:
     daily = _query_df("daily_total_volume")
     ontime = _query_df("on_time_rate_by_hub")
-    total = int(daily["shipments"].sum())
+    total = int(daily["orders"].sum())
     delivered = int(ontime["delivered"].sum())
     on_time = int(ontime["on_time"].sum())
     on_time_pct = round(100 * on_time / delivered, 1) if delivered else 0.0
 
     with _engine().connect() as conn:
         quarantined = conn.execute(text("SELECT COUNT(*) FROM quarantine_shipments")).scalar_one()
-    staged = total  # fact rows == cleaned shipments
+    staged = total  # fact rows == cleaned orders
     quarantine_pct = round(100 * quarantined / (staged + quarantined), 2) if staged else 0.0
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total shipments", f"{total:,}")
-    c2.metric("Hubs", f"{len(HUBS)}")
+    c1.metric("Total orders", f"{total:,}")
+    c2.metric("States", f"{_n_states()}")
     c3.metric("Overall on-time %", f"{on_time_pct}%")
     c4.metric("Quarantine rate", f"{quarantine_pct}%")
 
@@ -95,9 +111,9 @@ def volume_trend() -> None:
         st.info("No data yet.")
         return
     daily["date"] = pd.to_datetime(daily["date"])
-    daily["ma7"] = daily["shipments"].rolling(7, min_periods=1).mean()
+    daily["ma7"] = daily["orders"].rolling(7, min_periods=1).mean()
     fig = go.Figure()
-    fig.add_scatter(x=daily["date"], y=daily["shipments"], name="Daily",
+    fig.add_scatter(x=daily["date"], y=daily["orders"], name="Daily",
                     mode="lines", line=dict(color="#94a3b8", width=1))
     fig.add_scatter(x=daily["date"], y=daily["ma7"], name="7-day avg",
                     mode="lines", line=dict(color="#2563eb", width=2.5))
@@ -107,29 +123,33 @@ def volume_trend() -> None:
 
 
 def hub_comparison() -> None:
-    st.subheader("Hub comparison - total volume")
+    st.subheader("State comparison - total volume")
     rank = _query_df("hub_utilisation_rank")
     if rank.empty:
         st.info("No data yet.")
         return
-    rank = rank.sort_values("total_shipments", ascending=True)
+    rank = rank.sort_values("total_orders", ascending=True)
     colors = [REGION_COLORS.get(r, "#64748b") for r in rank["region"]]
     fig = go.Figure(go.Bar(
-        x=rank["total_shipments"], y=rank["hub_name"], orientation="h",
+        x=rank["total_orders"], y=rank["hub_name"], orientation="h",
         marker_color=colors,
         text=rank["region"], textposition="auto",
     ))
-    fig.update_layout(height=460, margin=dict(l=10, r=10, t=10, b=10),
-                      xaxis_title="Total shipments")
+    fig.update_layout(height=560, margin=dict(l=10, r=10, t=10, b=10),
+                      xaxis_title="Total orders")
     st.plotly_chart(fig, use_container_width=True)
 
 
 def forecast_section() -> None:
     st.subheader("14-day volume forecast (SARIMA)")
-    codes = {h.name: h.code for h in HUBS}
-    name = st.selectbox("Hub", list(codes), index=0)
+    codes = _forecast_codes()
+    if not codes:
+        st.info("No states dense enough to forecast yet.")
+        return
+    labels = {f"{STATES_BY_CODE[c].name} ({c})": c for c in codes}
+    name = st.selectbox("State", list(labels), index=0)
     horizon = st.slider("Forecast horizon (days)", 7, 28, 14, step=7)
-    code = codes[name]
+    code = labels[name]
 
     with st.spinner("Fitting SARIMA model..."):
         series = _series(code)
@@ -155,12 +175,15 @@ def forecast_section() -> None:
 
 def main() -> None:
     st.title("📦 ParcelFlow")
-    st.caption("Cloud ELT pipeline + parcel-volume forecasting · synthetic data")
+    st.caption(
+        "Cloud ELT pipeline + order-volume forecasting · "
+        "real Olist Brazilian e-commerce data"
+    )
 
     if not _has_data():
         st.warning(
             "No warehouse data found. Run the pipeline first:\n\n"
-            "`python pipeline.py backfill --years 2`"
+            "`python pipeline.py backfill`"
         )
         return
 

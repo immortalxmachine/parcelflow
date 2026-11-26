@@ -9,48 +9,62 @@ from parcelflow.pipeline.quality import screen
 
 def _base_row(**over):
     row = {
-        "shipment_id": "CHN-2024-03-15-00001",
-        "ship_date": "2024-03-15",
-        "hub_code": "CHN",
-        "service_type": "EXPRESS",
-        "weight_kg": 2.5,
-        "distance_km": 300.0,
-        "promised_hours": 24.0,
-        "actual_hours": 20.0,
-        "status": "DELIVERED",
+        "order_id": "order-0001",
+        "purchase_date": "2017-11-24",
+        "customer_state": "SP",
+        "order_status": "delivered",
+        "price": 129.9,
+        "freight_value": 15.1,
+        "n_items": 1,
+        "delivery_days": 8,
+        "delivered_date": "2017-12-02",
+        "estimated_date": "2017-12-15",
     }
     row.update(over)
     return row
 
 
 def test_all_clean_rows_pass():
-    df = pd.DataFrame([_base_row(shipment_id=f"x{i}") for i in range(5)])
+    df = pd.DataFrame([_base_row(order_id=f"x{i}") for i in range(5)])
     clean, quarantine = screen(df)
     assert len(clean) == 5
     assert quarantine.empty
 
 
+def test_no_item_order_is_clean():
+    # Orders with no items legitimately have blank price/freight - not a defect.
+    df = pd.DataFrame([
+        _base_row(order_id="ni", order_status="unavailable", price="",
+                  freight_value="", n_items=0, delivered_date="", delivery_days=""),
+    ])
+    clean, quarantine = screen(df)
+    assert len(clean) == 1
+    assert quarantine.empty
+
+
 def test_each_defect_is_quarantined_with_reason():
     df = pd.DataFrame([
-        _base_row(shipment_id="ok"),
-        _base_row(shipment_id="n1", hub_code=""),
-        _base_row(shipment_id="n2", weight_kg=-3),
-        _base_row(shipment_id="n3", ship_date="0000-99-99"),
-        _base_row(shipment_id="n4", service_type="ROCKET"),
+        _base_row(order_id="ok"),
+        _base_row(order_id="n1", customer_state=""),
+        _base_row(order_id="n2", price=-3),
+        _base_row(order_id="n3", purchase_date="0000-99-99"),
+        _base_row(order_id="n4", order_status="ROCKET"),
+        _base_row(order_id="n5", order_status="delivered", delivered_date=""),
     ])
     clean, quarantine = screen(df)
     assert len(clean) == 1
     reasons = set(quarantine["reason"])
     assert reasons == {
-        "null_hub_code", "bad_weight_kg", "bad_ship_date", "unknown_service_type",
+        "null_customer_state", "bad_price", "bad_purchase_date",
+        "unknown_order_status", "delivered_without_date",
     }
 
 
-def test_duplicate_shipment_id_quarantined():
-    df = pd.DataFrame([_base_row(shipment_id="dup"), _base_row(shipment_id="dup")])
+def test_duplicate_order_id_quarantined():
+    df = pd.DataFrame([_base_row(order_id="dup"), _base_row(order_id="dup")])
     clean, quarantine = screen(df)
     assert len(clean) == 1  # first kept
-    assert list(quarantine["reason"]) == ["duplicate_shipment_id"]
+    assert list(quarantine["reason"]) == ["duplicate_order_id"]
 
 
 def test_empty_input():

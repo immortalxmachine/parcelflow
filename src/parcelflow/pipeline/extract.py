@@ -1,10 +1,11 @@
 """Extract step: produce raw files in blob storage and read them back.
 
 In a real system an upstream team would drop daily files into object storage.
-Here the generator plays that role: ``extract_to_storage`` writes one CSV per
-hub per day into the ``raw/`` prefix, partitioned by date. ``read_partition``
-reads every file for a date back into a single DataFrame, exactly as the load
-step would consume them from Azure Blob / Azurite.
+Here the Olist source (``source/olist.py``) plays that role: ``extract_to_storage``
+slices the real orders for one day and writes one CSV per destination state into
+the ``raw/`` prefix, partitioned by date. ``read_partition`` reads every file
+for a date back into a single DataFrame, exactly as the load step would consume
+them from Azure Blob / Azurite.
 """
 
 from __future__ import annotations
@@ -15,26 +16,27 @@ from datetime import date
 import pandas as pd
 
 from ..config import Settings, get_settings
-from ..generate.generator import generate_and_store
+from ..source.olist import write_partition
 from ..storage.base import StorageBackend
 
 # Keep string columns as strings so quality checks see raw values (e.g. a blank
-# hub_code stays blank rather than becoming NaN of a numeric column).
+# customer_state stays blank rather than becoming NaN of a numeric column).
 _RAW_DTYPES = {
-    "shipment_id": "string",
-    "ship_date": "string",
-    "hub_code": "string",
-    "service_type": "string",
-    "status": "string",
+    "order_id": "string",
+    "purchase_date": "string",
+    "customer_state": "string",
+    "order_status": "string",
+    "delivered_date": "string",
+    "estimated_date": "string",
 }
 
 
 def extract_to_storage(
     d: date, storage: StorageBackend, settings: Settings | None = None
 ) -> list[str]:
-    """Generate and upload one day's raw files. Idempotent (overwrites)."""
+    """Write one day's real orders to storage, per state. Idempotent (overwrites)."""
     settings = settings or get_settings()
-    return generate_and_store(d, storage, volume_scale=settings.volume_scale)
+    return write_partition(d, storage, settings)
 
 
 def read_partition(d: date, storage: StorageBackend) -> pd.DataFrame:

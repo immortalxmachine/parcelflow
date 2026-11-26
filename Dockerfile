@@ -22,7 +22,7 @@ ENV PYTHONPATH=/app/src
 EXPOSE 8501
 
 # Default: launch the dashboard. Override the command to run the pipeline, e.g.
-#   docker compose run --rm pipeline python pipeline.py backfill --years 2
+#   docker compose run --rm pipeline python pipeline.py backfill
 CMD ["streamlit", "run", "dashboard/app.py", \
      "--server.address=0.0.0.0", "--server.port=8501", \
      "--server.headless=true"]

@@ -13,8 +13,9 @@ from sqlalchemy import Engine, text
 from ..db.schema import quarantine_shipments, stg_shipments
 
 _STG_COLS = [
-    "shipment_id", "ship_date", "hub_code", "service_type", "weight_kg",
-    "distance_km", "promised_hours", "actual_hours", "status", "load_date",
+    "order_id", "purchase_date", "customer_state", "order_status", "price",
+    "freight_value", "n_items", "delivery_days", "delivered_date",
+    "estimated_date", "load_date",
 ]
 _QUAR_COLS = _STG_COLS[:-1] + ["reason", "load_date"]
 
@@ -47,8 +48,8 @@ def load_quarantine(engine: Engine, quarantine: pd.DataFrame, load_date: str) ->
     df = quarantine.copy()
     df["load_date"] = load_date
     # Numeric columns are stored as text in quarantine so raw invalid values
-    # (e.g. a negative weight) survive for auditing.
-    for col in ["weight_kg", "distance_km", "promised_hours", "actual_hours"]:
+    # (e.g. a negative price) survive for auditing.
+    for col in ["price", "freight_value", "n_items", "delivery_days"]:
         df[col] = df[col].astype("string")
     df = df[_QUAR_COLS]
     df.to_sql(quarantine_shipments.name, engine, if_exists="append", index=False)

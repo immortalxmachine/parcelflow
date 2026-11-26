@@ -8,8 +8,8 @@ Subcommands:
     status                     print row counts and the latest run log
 
 Example:
-    python pipeline.py backfill --years 2
-    python pipeline.py run --date 2024-10-20
+    python pipeline.py backfill                 # full Olist window
+    python pipeline.py run --date 2017-11-24    # one day (Black Friday)
     python pipeline.py forecast
 """
 
@@ -17,16 +17,16 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from sqlalchemy import text
 
 from .config import PROJECT_ROOT, get_settings
 from .db.engine import get_engine
 from .db.schema import create_all, drop_all
-from .forecast.forecast import evaluate_all
-from .generate.hubs import HUBS
+from .forecast.forecast import evaluate_all, forecastable_hubs
 from .pipeline import dims, runner
+from .source import olist
 
 METRICS_PATH = PROJECT_ROOT / "metrics.json"
 
@@ -42,7 +42,7 @@ def cmd_initdb(args: argparse.Namespace) -> None:
         drop_all(engine)
         print("Dropped all tables.")
     create_all(engine)
-    dims.seed_hub_and_service(engine)
+    dims.seed_hub_and_status(engine)
     print(f"Initialised schema at {settings.database_url}")
 
 
@@ -53,11 +53,10 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 
 def cmd_backfill(args: argparse.Namespace) -> None:
-    if args.start and args.end:
-        start, end = _parse_date(args.start), _parse_date(args.end)
-    else:
-        end = _parse_date(args.end) if args.end else date.today()
-        start = end - timedelta(days=round(365 * args.years))
+    # Default to the full window actually present in the Olist source data.
+    src_start, src_end = olist.available_window()
+    start = _parse_date(args.start) if args.start else src_start
+    end = _parse_date(args.end) if args.end else src_end
     print(f"Backfilling {start} .. {end} ({(end - start).days + 1} days)")
     results = runner.run_backfill(start, end)
     print(json.dumps(runner.summarise(results), indent=2))
@@ -65,7 +64,11 @@ def cmd_backfill(args: argparse.Namespace) -> None:
 
 def cmd_forecast(args: argparse.Namespace) -> None:
     engine = get_engine()
-    codes = [h.code for h in HUBS]
+    codes = forecastable_hubs(engine, min_avg_per_day=args.min_per_day)
+    if not codes:
+        print("No hubs dense enough to forecast. Run a backfill first.")
+        return
+    print(f"Forecasting {len(codes)} dense states: {', '.join(codes)}")
     metrics = evaluate_all(engine, codes, holdout=args.holdout)
     METRICS_PATH.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     print(json.dumps(
@@ -80,7 +83,7 @@ def cmd_status(args: argparse.Namespace) -> None:
     with engine.connect() as conn:
         for table in [
             "stg_shipments", "quarantine_shipments", "fact_shipments",
-            "dim_hub", "dim_service", "dim_date", "run_log",
+            "dim_hub", "dim_order_status", "dim_date", "run_log",
         ]:
             n = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar_one()
             print(f"  {table:22s} {n:>10,}")
@@ -108,13 +111,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=cmd_run)
 
     sp = sub.add_parser("backfill", help="run the pipeline for a date range")
-    sp.add_argument("--start", help="YYYY-MM-DD")
-    sp.add_argument("--end", help="YYYY-MM-DD (default: today)")
-    sp.add_argument("--years", type=float, default=2.0, help="years back from end")
+    sp.add_argument("--start", help="YYYY-MM-DD (default: first date in source)")
+    sp.add_argument("--end", help="YYYY-MM-DD (default: last date in source)")
     sp.set_defaults(func=cmd_backfill)
 
     sp = sub.add_parser("forecast", help="back-test forecasts; write metrics.json")
     sp.add_argument("--holdout", type=int, default=14, help="holdout days")
+    sp.add_argument("--min-per-day", type=float, default=8.0,
+                    help="min avg orders/day for a state to be forecast")
     sp.set_defaults(func=cmd_forecast)
 
     sp = sub.add_parser("status", help="print table counts and recent runs")

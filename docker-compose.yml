@@ -4,7 +4,7 @@
 #
 # Usage:
 #   docker compose up -d postgres azurite      # start the backing services
-#   docker compose run --rm pipeline           # init + backfill 2 years
+#   docker compose run --rm pipeline           # init + backfill + forecast
 #   docker compose up dashboard                # open http://localhost:8501
 #
 # (The same code runs with zero Docker via SQLite + local files; see README.)
@@ -34,7 +34,7 @@ services:
     volumes:
       - azurite:/data
 
-  # One-shot: create schema + backfill 2 years into Postgres via Azurite.
+  # One-shot: create schema + backfill the Olist window into Postgres via Azurite.
   pipeline:
     build: .
     depends_on:
@@ -46,9 +46,12 @@ services:
       DATABASE_URL: postgresql+psycopg://parcelflow:parcelflow@postgres:5432/parcelflow
       STORAGE_BACKEND: azure
       AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+    volumes:
+      # The real Olist CSVs live on the host (git-ignored); mount them read-only.
+      - ./data/raw/olist:/app/data/raw/olist:ro
     command: >
       sh -c "python pipeline.py initdb &&
-             python pipeline.py backfill --years 2 &&
+             python pipeline.py backfill &&
              python pipeline.py forecast"
 
   dashboard:

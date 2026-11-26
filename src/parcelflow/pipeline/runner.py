@@ -49,21 +49,22 @@ def run_for_date(
 ) -> RunResult:
     """Run the full pipeline for ``run_date`` and return a summary.
 
-    If ``generate`` is True, raw files are (re)generated into storage first;
-    set it False to run against raw files already present in storage.
+    If ``generate`` is True, that day's raw files are (re)extracted from the
+    Olist source into storage first; set it False to run against raw files
+    already present in storage.
     """
     settings = settings or get_settings()
     engine = engine or get_engine(settings.database_url)
     storage = storage or get_storage(settings)
 
     create_all(engine)
-    dims.seed_hub_and_service(engine)
+    dims.seed_hub_and_status(engine)
 
     iso = run_date.isoformat()
     run_id = uuid.uuid4().hex[:12]
     started = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    # 1. Extract: ensure raw files exist in blob storage for this date.
+    # 1. Extract: ensure this date's raw files exist in blob storage.
     if generate:
         extract.extract_to_storage(run_date, storage, settings)
     raw = extract.read_partition(run_date, storage)

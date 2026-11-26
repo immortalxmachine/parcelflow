@@ -30,18 +30,22 @@ def test_seasonal_naive_repeats_week():
     assert list(preds) == [7, 8, 9, 10, 11, 12, 13]
 
 
+# A dense state (São Paulo) over a 45-day window inside the Olist data.
+DENSE_HUB = "SP"
+START = date(2018, 1, 2)
+
+
 def _backfill(engine, storage, settings, days: int):
-    start = date(2024, 1, 1)
     for i in range(days):
         runner.run_for_date(
-            start + timedelta(days=i), engine=engine, storage=storage, settings=settings
+            START + timedelta(days=i), engine=engine, storage=storage, settings=settings
         )
 
 
 def test_evaluate_hub_returns_finite_mape(engine, storage, settings):
     _backfill(engine, storage, settings, days=45)
-    metrics = fc.evaluate_hub(engine, "DEL", holdout=7)
-    assert metrics.hub_code == "DEL"
+    metrics = fc.evaluate_hub(engine, DENSE_HUB, holdout=7)
+    assert metrics.hub_code == DENSE_HUB
     assert metrics.n_days == 45
     assert np.isfinite(metrics.mape_sarima)
     assert np.isfinite(metrics.mape_naive)
@@ -49,9 +53,18 @@ def test_evaluate_hub_returns_finite_mape(engine, storage, settings):
 
 def test_forecast_future_shape(engine, storage, settings):
     _backfill(engine, storage, settings, days=45)
-    out = fc.forecast_future(engine, "DEL", horizon=14)
+    out = fc.forecast_future(engine, DENSE_HUB, horizon=14)
     assert len(out) == 14
     assert list(out.columns) == ["date", "forecast", "lower", "upper"]
     # Confidence band should bracket the point forecast.
     assert (out["lower"] <= out["forecast"]).all()
     assert (out["forecast"] <= out["upper"]).all()
+
+
+def test_forecastable_hubs_selects_dense_states(engine, storage, settings):
+    _backfill(engine, storage, settings, days=45)
+    # Over this window SP is dense (~60+/day) and should be selected; a tiny
+    # state like Roraima (RR) should not clear the threshold.
+    hubs = fc.forecastable_hubs(engine, min_avg_per_day=3.0, min_days=30)
+    assert DENSE_HUB in hubs
+    assert "RR" not in hubs

@@ -8,6 +8,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -25,11 +28,21 @@ jobs:
       - name: Lint (ruff)
         run: ruff check src tests dashboard
 
+      # Optional: fetch the real Olist dataset so the source-backed tests and
+      # the pipeline smoke test run. Set repo secrets KAGGLE_USERNAME and
+      # KAGGLE_KEY to enable it; without them the data-backed tests skip.
+      - name: Download Olist dataset (if Kaggle secrets are set)
+        if: ${{ env.KAGGLE_KEY != '' }}
+        run: |
+          pip install kaggle
+          kaggle datasets download -d olistbr/brazilian-ecommerce -p data/raw/olist --unzip
+
       - name: Run tests
         run: pytest -q
 
       - name: Pipeline smoke test (SQLite + local storage)
+        if: ${{ env.KAGGLE_KEY != '' }}
         run: |
           python pipeline.py initdb --reset
-          python pipeline.py run --date 2024-10-20
+          python pipeline.py run --date 2017-11-24
           python pipeline.py status
